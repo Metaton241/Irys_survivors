@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRYS SURVIVORS v0.1.1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Анимированный фон */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(119, 198, 255, 0.1) 0%, transparent 50%);
+            animation: backgroundFloat 20s ease-in-out infinite;
+            z-index: -1;
+        }
+        
+        @keyframes backgroundFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(45deg, #0f0f0f 0%, #1a1a2e 100%);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .ui-element {
+            position: absolute;
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .ui-element:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Игровой интерфейс */
+        #gameUI {
+            top: 20px;
+            left: 20px;
+            min-width: 300px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 40, 0.9) 100%);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #ccc;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .health-bar, .xp-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444 0%, #ff8888 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .xp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00 0%, #88ff88 100%);
+            transition: width 0.3s ease;
+        }
+        
+        /* Главное меню */
+        #menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(20, 20, 40, 0.95) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            text-align: center;
+            z-index: 2000;
+            backdrop-filter: blur(20px);
+            padding-top: 50px;
+        }
+        
+        .menu-title {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+            margin-bottom: 10px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+            to { text-shadow: 0 0 30px rgba(255, 255, 255, 0.6); }
+        }
+        
+        .menu-subtitle {
+            font-size: 1.2rem;
+            color: #888;
+            margin-bottom: 20px;
+            animation: fadeIn 1s ease-in-out;
+        }
+        
+        .menu-version {
+            font-size: 1rem;
+            color: #bbb;
+            margin-top: 10px;
+        }
+        
+        .menu-section {
+            margin: 10px 0;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .menu-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .menu-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        
+        .menu-button:active {
+            transform: translateY(0);
+        }
+        
+        /* User Profile Section */
+        .user-profile {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .username-section {
+            margin-bottom: 15px;
+        }
+        
+        .username-section label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        
+        .username-section input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+            text-align: center;
+        }
+        
+        .username-section input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .username-section input:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .current-user {
+            text-align: center;
+            color: #ffffff;
+            font-size: 1rem;
+        }
+        
+        .current-user span:first-child {
+            color: rgba(255, 255, 255, 0.7);
+            margin-right: 8px;
+        }
+        
+        .current-user span:last-child {
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        /* Селектор языка */
+        .language-selector {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .language-selector label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+        
+        .language-selector select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .language-selector select:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .language-selector select:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(78, 205, 196, 0.5);
+        }
+        
+        .language-selector option {
+            background: #2c3e50;
+            color: #ffffff;
+        }
+        
+        /* Выбор класса */
+        .class-selection {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 15px 0;
+        }
+        
+        .class-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            width: 250px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .class-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .class-card.selected {
+            border-color: #4ecdc4;
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.2) 0%, rgba(78, 205, 196, 0.1) 100%);
+        }
+        
+        .class-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .class-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .class-description {
+            font-size: 0.9rem;
+            color: #ccc;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        
+        .class-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+        
+        .class-stat {
+            text-align: center;
+        }
+        
+        .class-stat-label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        .class-stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+        
+        /* Система золота */
+        .gold-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            z-index: 3000;
+        }
+        
+        .gold-icon {
+            margin-right: 10px;
+        }
+        
+        /* Прокачка */
+        .upgrades-section {
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            max-width: 600px;
+            width: 100%;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+        
+        .upgrades-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 20px;
+            scroll-behavior: smooth;
+        }
+        
+        .upgrades-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .upgrades-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        .upgrades-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+        
+        .upgrades-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .upgrades-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .upgrades-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            padding-top: 15px;
+            margin-top: 15px;
+            flex-shrink: 0;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 0 0 15px 15px;
+            margin-left: -25px;
+            margin-right: -25px;
+            margin-bottom: -25px;
+            padding-left: 25px;
+            padding-right: 25px;
+            padding-bottom: 25px;
+            text-align: center;
+        }
+        
+        .upgrade-item {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upgrade-item:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .upgrade-item.purchased {
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.2) 0%, rgba(78, 205, 196, 0.1) 100%);
+            border-color: #4ecdc4;
+        }
+        
+        .upgrade-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .upgrade-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .upgrade-cost {
+            color: #f39c12;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .upgrade-level {
+            color: #4ecdc4;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        /* Таблица рекордов */
+        .leaderboard {
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            max-width: 400px;
+            width: 100%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+        
+        .leaderboard h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #4ecdc4;
+        }
+        
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* Новые стили для обновленного лидерборда */
+        .user-stats {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .user-stats h4 {
+            text-align: center;
+            color: #4ecdc4;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .global-leaderboard {
+            margin-top: 20px;
+        }
+        
+        .global-leaderboard h4 {
+            text-align: center;
+            color: #f39c12;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .leaderboard-table {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .leaderboard-header {
+            display: grid;
+            grid-template-columns: 50px 1fr 80px 60px 80px 80px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 10px;
+            font-weight: bold;
+            color: #4ecdc4;
+            font-size: 0.9rem;
+        }
+        
+        .leaderboard-header span {
+            text-align: center;
+        }
+        
+        .leaderboard-entries {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .leaderboard-entry {
+            display: grid;
+            grid-template-columns: 50px 1fr 80px 60px 80px 80px;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .leaderboard-entry:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .leaderboard-entry.current-user {
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+        }
+        
+        .leaderboard-entry span {
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .leaderboard-entry .rank {
+            font-weight: bold;
+            color: #f39c12;
+        }
+        
+        .leaderboard-entry .rank.gold {
+            color: #ffd700;
+        }
+        
+        .leaderboard-entry .rank.silver {
+            color: #c0c0c0;
+        }
+        
+        .leaderboard-entry .rank.bronze {
+            color: #cd7f32;
+        }
+        
+        .leaderboard-entry .player {
+            font-weight: bold;
+            text-align: left;
+            padding-left: 10px;
+        }
+        
+        .leaderboard-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .empty-leaderboard {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 40px;
+            font-style: italic;
+        }
+        
+        /* Комбо */
+        #combo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1500;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(255, 0, 255, 0.9) 0%, rgba(255, 100, 100, 0.9) 100%);
+            padding: 15px 30px;
+            border-radius: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        /* Меню повышения уровня */
+        #levelUpMenu {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(20, 20, 40, 0.95) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            z-index: 2500;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        }
+        
+        .level-up-title {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .level-up-options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .level-up-option {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            width: 200px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .level-up-option:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px);
+        }
+        
+        .option-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        .option-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .option-description {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        
+        /* Скрытые элементы */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .menu-title {
+                font-size: 2.5rem;
+            }
+            
+            .class-selection {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .class-card {
+                width: 90%;
+                max-width: 300px;
+            }
+            
+            .level-up-options {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .level-up-option {
+                width: 90%;
+                max-width: 250px;
+            }
+            
+            .upgrades-section {
+                max-width: 95%;
+                max-height: 80vh;
+                padding: 15px;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+            
+            .upgrades-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .upgrade-item {
+                margin-bottom: 10px;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-overlay">
+        <!-- Игровой интерфейс -->
+        <div id="gameUI" class="ui-element hidden">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Уровень</div>
+                    <div class="stat-value" id="level">1</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Счет</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Время</div>
+                    <div class="stat-value" id="time">00:00</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Золото</div>
+                    <div class="stat-value" id="gameGold">0</div>
+                </div>
+            </div>
+            
+            <div class="health-bar">
+                <div class="health-fill" id="hpFill"></div>
+            </div>
+            <div style="text-align: center; margin: 5px 0;">
+                <span id="hp">100</span> HP
+            </div>
+            
+            <div class="xp-bar">
+                <div class="xp-fill" id="xpFill"></div>
+            </div>
+            <div style="text-align: center; margin: 5px 0;">
+                <span id="xp">0</span> / <span id="xpNext">100</span> XP
+            </div>
+        </div>
+        
+        <!-- Отображение комбо -->
+        <div id="combo" class="hidden">
+            КОМБО <span id="comboValue">0</span>
+        </div>
+    </div>
+    
+    <!-- Отображение золота -->
+    <div class="gold-display" id="goldDisplay">
+        <span class="gold-icon">💰</span>
+        <span id="goldAmount">0</span>
+    </div>
+    
+    <!-- Главное меню -->
+    <div id="menu">
+        <h1 class="menu-title" data-i18n="menu.title">IRYS SURVIVORS</h1>
+        <p class="menu-subtitle">BY https://x.com/M3TATON</p>
+        <p class="menu-version" id="gameVersion">v0.1</p>
+        
+        <div class="menu-section">
+            <h2 data-i18n="class.select">Select Class</h2>
+            <div class="class-selection">
+                <div class="class-card" id="archerClass" onclick="selectClass('archer')">
+                    <div class="class-icon">🏹</div>
+                    <div class="class-name" data-i18n="class.archer">Archer</div>
+                    <div class="class-description" data-i18n="class.archer.desc">Ranged combat, high attack speed, medium durability</div>
+                    <div class="class-stats">
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.damage">Damage</div>
+                            <div class="class-stat-value">★★★</div>
+                        </div>
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.speed">Speed</div>
+                            <div class="class-stat-value">★★★★</div>
+                        </div>
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.health">Health</div>
+                            <div class="class-stat-value">★★</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Временно скрыт класс Swordsman
+                <div class="class-card" id="swordsmanClass" onclick="selectClass('swordsman')">
+                    <div class="class-icon">⚔️</div>
+                    <div class="class-name" data-i18n="class.swordsman">Swordsman</div>
+                    <div class="class-description" data-i18n="class.swordsman.desc">Melee combat, high damage, high durability</div>
+                    <div class="class-stats">
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.damage">Damage</div>
+                            <div class="class-stat-value">★★★★</div>
+                        </div>
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.speed">Speed</div>
+                            <div class="class-stat-value">★★</div>
+                        </div>
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.health">Health</div>
+                            <div class="class-stat-value">★★★★</div>
+                        </div>
+                    </div>
+                </div>
+                -->
+                
+                <!-- Временно скрыт класс Bomber
+                <div class="class-card" id="bomberClass" onclick="selectClass('bomber')">
+                    <div class="class-icon">💣</div>
+                    <div class="class-name" data-i18n="class.bomber">Bomber</div>
+                    <div class="class-description" data-i18n="class.bomber.desc">Long-range explosive attacks, medium speed, powerful blasts</div>
+                    <div class="class-stats">
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.damage">Damage</div>
+                            <div class="class-stat-value">★★★★★</div>
+                        </div>
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.speed">Speed</div>
+                            <div class="class-stat-value">★★★</div>
+                        </div>
+                        <div class="class-stat">
+                            <div class="class-stat-label" data-i18n="class.stats.health">Health</div>
+                            <div class="class-stat-value">★★★</div>
+                        </div>
+                    </div>
+                </div>
+                -->
+            </div>
+        </div>
+        
+        <div class="menu-section">
+            <!-- User Profile Section -->
+            <div class="user-profile">
+                <div class="username-section">
+                    <label for="usernameInput" data-i18n="menu.username">Username:</label>
+                    <input type="text" 
+                           id="usernameInput" 
+                           placeholder="Enter your username"
+                           data-i18n-placeholder="menu.usernamePlaceholder"
+                           maxlength="20"
+                           onchange="changeUsername(this.value)"
+                           onkeypress="handleUsernameKeypress(event)">
+                </div>
+                <div class="current-user">
+                    <span data-i18n="menu.currentUser">Current User:</span>
+                    <span id="currentUser">Guest</span>
+                </div>
+            </div>
+            
+            <button class="menu-button" onclick="startGame()" data-i18n="menu.startGame">Start Game</button>
+            <button class="menu-button" onclick="showUpgrades()" data-i18n="menu.upgrades">Upgrades</button>
+            <button class="menu-button" onclick="showLeaderboard()" data-i18n="menu.leaderboard">Leaderboard</button>
+            <div class="language-selector">
+                <label for="languageSelector" data-i18n="menu.language">Language:</label>
+                <select id="languageSelector" onchange="changeLanguage(this.value)">
+                    <option value="en">English</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Система прокачки -->
+        <div id="upgradesSection" class="upgrades-section hidden">
+            <h3 style="text-align: center; margin-bottom: 10px; color: #4ecdc4;" data-i18n="upgrades.title">Permanent Upgrades</h3>
+            <div style="text-align: center; margin-bottom: 20px; color: #f39c12; font-size: 1.1rem;">
+                <span class="gold-icon">💰</span> <span data-i18n="upgrades.currentGold">Current Gold: {0}</span>
+            </div>
+            <div class="upgrades-container">
+            <div class="upgrades-grid" id="upgradesGrid">
+                <!-- Будет заполнено JavaScript -->
+            </div>
+            </div>
+            <div class="upgrades-footer">
+                <button class="menu-button" onclick="hideUpgrades()" data-i18n="upgrades.back">Back</button>
+            </div>
+        </div>
+        
+        <!-- Таблица рекордов -->
+        <div id="leaderboardSection" class="leaderboard hidden">
+            <h3 data-i18n="leaderboard.title">🏆 Leaderboard</h3>
+            
+            <!-- Статистика текущего пользователя -->
+            <div class="user-stats">
+                <h4 data-i18n="leaderboard.yourStats">Your Personal Stats</h4>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span data-i18n="leaderboard.score">Best Score:</span>
+                <span id="bestScore">0</span>
+            </div>
+                    <div class="stat-item">
+                        <span data-i18n="leaderboard.time">Best Time:</span>
+                <span id="bestTime">00:00</span>
+            </div>
+                    <div class="stat-item">
+                        <span data-i18n="leaderboard.level">Best Level:</span>
+                <span id="bestLevel">1</span>
+            </div>
+                    <div class="stat-item">
+                        <span data-i18n="leaderboard.gold">Total Gold:</span>
+                <span id="totalGold">0</span>
+            </div>
+                </div>
+            </div>
+            
+            <!-- Глобальный лидерборд -->
+            <div class="global-leaderboard">
+                <h4 data-i18n="leaderboard.global">Global Leaderboard</h4>
+                <div class="leaderboard-table">
+                    <div class="leaderboard-header">
+                        <span data-i18n="leaderboard.rank">Rank</span>
+                        <span data-i18n="leaderboard.player">Player</span>
+                        <span data-i18n="leaderboard.score">Score</span>
+                        <span data-i18n="leaderboard.level">Level</span>
+                        <span data-i18n="leaderboard.time">Time</span>
+                        <span data-i18n="leaderboard.class">Class</span>
+                    </div>
+                    <div class="leaderboard-entries" id="leaderboardEntries">
+                        <!-- Будет заполнено JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="leaderboard-buttons">
+                <button class="menu-button" onclick="hideLeaderboard()" data-i18n="upgrades.back">Back</button>
+                <button class="menu-button" onclick="clearLeaderboard()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);" data-i18n="leaderboard.clear">Clear</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Меню повышения уровня -->
+    <div id="levelUpMenu" class="hidden">
+        <h2 class="level-up-title">LEVEL UP!</h2>
+        <div class="level-up-options" id="levelUpOptions">
+            <!-- Будет заполнено JavaScript -->
+        </div>
+    </div>
+    
+    <script src="js/i18n.js"></script>
+    <script src="js/userManager.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/particleSystem.js"></script>
+    <script src="js/weapons.js"></script>
+    <script src="js/enemies.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
