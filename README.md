@@ -1,3 +1,12 @@
+UPDATE 26.07.2025
+# IRYS SURVIVORS v0.2 🎮
+
+-NEW CLASS! Swordman
+-a lot of bug fixes
+-added new end of rum menu
+
+
+
 # IRYS SURVIVORS v0.1 🎮
 
 **BY https://x.com/M3TATON**
