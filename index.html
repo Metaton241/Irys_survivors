@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IRYS SURVIVORS v0.1.1</title>
+    <title>IRYS SURVIVORS v0.2</title>
     <style>
         * {
             margin: 0;
@@ -907,7 +907,6 @@
                     </div>
                 </div>
                 
-                <!-- Временно скрыт класс Swordsman
                 <div class="class-card" id="swordsmanClass" onclick="selectClass('swordsman')">
                     <div class="class-icon">⚔️</div>
                     <div class="class-name" data-i18n="class.swordsman">Swordsman</div>
@@ -927,7 +926,6 @@
                         </div>
                     </div>
                 </div>
-                -->
                 
                 <!-- Временно скрыт класс Bomber
                 <div class="class-card" id="bomberClass" onclick="selectClass('bomber')">
@@ -975,7 +973,7 @@
             <button class="menu-button" onclick="startGame()" data-i18n="menu.startGame">Start Game</button>
             <button class="menu-button" onclick="showUpgrades()" data-i18n="menu.upgrades">Upgrades</button>
             <button class="menu-button" onclick="showLeaderboard()" data-i18n="menu.leaderboard">Leaderboard</button>
-            <div class="language-selector">
+            <div class="language-selector" style="position: absolute; bottom: 20px; right: 20px;">
                 <label for="languageSelector" data-i18n="menu.language">Language:</label>
                 <select id="languageSelector" onchange="changeLanguage(this.value)">
                     <option value="en">English</option>

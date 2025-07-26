@@ -330,22 +330,22 @@ class TankEnemy extends Enemy {
             );
         } else {
             // Fallback - большой квадрат для танка
-            ctx.fillStyle = this.color;
-            ctx.fillRect(
-                this.x - this.size / 2, 
-                this.y - this.size / 2, 
-                this.size, 
-                this.size
-            );
+        ctx.fillStyle = this.color;
+        ctx.fillRect(
+            this.x - this.size / 2, 
+            this.y - this.size / 2, 
+            this.size, 
+            this.size
+        );
 
-            // Дополнительная деталь
-            ctx.fillStyle = '#990000';
-            ctx.fillRect(
-                this.x - this.size / 3, 
-                this.y - this.size / 3, 
-                this.size / 1.5, 
-                this.size / 1.5
-            );
+        // Дополнительная деталь
+        ctx.fillStyle = '#990000';
+        ctx.fillRect(
+            this.x - this.size / 3, 
+            this.y - this.size / 3, 
+            this.size / 1.5, 
+            this.size / 1.5
+        );
         }
 
         if (this.health < this.maxHealth) {
@@ -541,20 +541,20 @@ class ShooterEnemy extends Enemy {
             );
         } else {
             // Fallback - шестиугольная форма
-            ctx.fillStyle = this.color;
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const angle = (i * Math.PI * 2) / 6;
-                const x = this.x + Math.cos(angle) * this.size / 2;
-                const y = this.y + Math.sin(angle) * this.size / 2;
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (i * Math.PI * 2) / 6;
+            const x = this.x + Math.cos(angle) * this.size / 2;
+            const y = this.y + Math.sin(angle) * this.size / 2;
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
             }
-            ctx.closePath();
-            ctx.fill();
+        }
+        ctx.closePath();
+        ctx.fill();
         }
 
         if (this.health < this.maxHealth) {

@@ -6,11 +6,31 @@ const playerImages = {
 
 // Функция загрузки изображений игроков
 function loadPlayerImages() {
+    console.log('Загрузка изображений игроков...');
+    
+    // Создаем изображение лучника
     playerImages.archer = new Image();
     playerImages.archer.src = 'images/archer.png';
+    playerImages.archer.onerror = function() {
+        console.error('Ошибка загрузки изображения лучника');
+        playerImages.archer = null;
+    };
+    playerImages.archer.onload = function() {
+        console.log('Изображение лучника загружено успешно');
+    };
     
+    // Создаем изображение мечника
     playerImages.swordman = new Image();
-    playerImages.swordman.src = 'images/swordman.jpg';
+    playerImages.swordman.src = 'images/swordman.png';
+    playerImages.swordman.onerror = function() {
+        console.error('Ошибка загрузки изображения мечника');
+        playerImages.swordman = null;
+    };
+    playerImages.swordman.onload = function() {
+        console.log('Изображение мечника загружено успешно');
+    };
+    
+    console.log('Запрошены изображения: archer=', playerImages.archer.src, 'swordman=', playerImages.swordman.src);
 }
 
 // Загружаем изображения при загрузке страницы
@@ -778,13 +798,49 @@ class PermanentUpgradesSystem {
     }
 
     getAllUpgrades() {
-        return Object.keys(this.upgradeDefinitions).map(id => ({
-            id,
-            ...this.upgradeDefinitions[id],
-            level: this.getUpgradeLevel(id),
-            cost: this.getUpgradeCost(id),
-            canUpgrade: this.canUpgrade(id)
-        }));
+        return Object.keys(this.upgradeDefinitions).map(id => {
+            const def = this.upgradeDefinitions[id];
+            let effect = '';
+            
+            // Определяем эффект для отображения в карточке
+            if (id === 'vitality') effect = '+10 health';
+            else if (id === 'agility') effect = '+15 speed';
+            else if (id === 'damage') effect = '+8% damage';
+            else if (id === 'defense') effect = '+1 armor';
+            else if (id === 'recovery') effect = '+0.5 regen';
+            else if (id === 'fortune') effect = '+5% exp';
+            else if (id === 'magnetism') effect = '+10 radius';
+            else if (id === 'swiftness') effect = '+8% attack speed';
+            else if (id === 'precision') effect = '+2% crit';
+            else if (id === 'vampirism') effect = '+1% lifesteal';
+            else if (id === 'multishot') effect = '+5% chance';
+            else if (id === 'explosive') effect = '+4% chance';
+            else if (id === 'thorns') effect = '+8% reflect';
+            else if (id === 'dodge') effect = '+1% chance';
+            else if (id === 'piercing') effect = '+1 pierce';
+            else if (id === 'projectileSpeed') effect = '+10% speed';
+            else if (id === 'goldRush') effect = '+8% gold';
+            else if (id === 'berserker') effect = '+2% damage';
+            else if (id === 'frost') effect = '+4% chance';
+            else if (id === 'poison') effect = '+2 damage';
+            else if (id === 'shielding') effect = '+10 shield';
+            else if (id === 'timeWarp') effect = '+1% chance';
+            else if (id === 'weaponSlots') effect = '+1 slot';
+            else if (id === 'rangeBoost') effect = '+8% range';
+            else if (id === 'adrenaline') effect = '+5% speed';
+            else if (id === 'ricochet') effect = '+4% chance';
+            else if (id === 'elementalDamage') effect = '+6% damage';
+            else if (id === 'vampiricAura') effect = '+1 health';
+            
+            return {
+                id,
+                ...def,
+                level: this.getUpgradeLevel(id),
+                cost: this.getUpgradeCost(id),
+                canUpgrade: this.canUpgrade(id),
+                effect: effect
+            };
+        });
     }
 
     loadUpgrades() {
@@ -850,7 +906,7 @@ class Player {
         this.maxHealth = 100;
         this.health = this.maxHealth;
         this.speed = 1440; // Увеличено в 2 раза для лучшей динамики
-        this.size = 30; // Увеличено в 1.5 раза с 20 до 30
+        this.size = 42; // Увеличено в 1.4 раза с 30 до 42
         this.color = '#00ff00';
         this.level = 1;
         this.experience = 0;
@@ -941,8 +997,10 @@ class Player {
     }
 
     setCharacterClass(characterClass) {
+        console.log('Player.setCharacterClass:', characterClass.name);
         this.characterClass = characterClass;
         characterClass.applyToPlayer(this);
+        console.log('Класс применен к игроку:', this.characterClass.name);
     }
 
     setInputManager(inputManager) {
@@ -1082,10 +1140,20 @@ class Player {
         // Отрисовка изображения в зависимости от класса
         let playerImage = null;
         if (this.characterClass) {
-            if (this.characterClass.name === 'Лучник' && playerImages.archer && playerImages.archer.complete) {
+            if (this.characterClass.name === 'Лучник' && playerImages.archer) {
                 playerImage = playerImages.archer;
-            } else if (this.characterClass.name === 'Мечник' && playerImages.swordman && playerImages.swordman.complete) {
+                if (!playerImage.complete) {
+                    console.log('Изображение лучника не загружено полностью');
+                }
+            } else if (this.characterClass.name === 'Мечник' && playerImages.swordman) {
                 playerImage = playerImages.swordman;
+                if (!playerImage.complete) {
+                    console.log('Изображение мечника не загружено полностью');
+                }
+            }
+            
+            if (this.characterClass.name === 'Мечник') {
+                console.log('Отрисовка мечника:', playerImage ? 'изображение найдено' : 'изображение не найдено');
             }
         }
         
@@ -1100,21 +1168,21 @@ class Player {
             );
         } else {
             // Fallback - цветной квадрат
-            if (this.characterClass) {
-                if (this.characterClass.name === 'Лучник') {
-                    ctx.fillStyle = '#00ff00';
-                } else if (this.characterClass.name === 'Мечник') {
-                    ctx.fillStyle = '#ff6600';
-                }
-            } else {
-                ctx.fillStyle = this.color;
+        if (this.characterClass) {
+            if (this.characterClass.name === 'Лучник') {
+                ctx.fillStyle = '#00ff00';
+            } else if (this.characterClass.name === 'Мечник') {
+                ctx.fillStyle = '#ff6600';
             }
-            
-            ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
-            
-            // Направление взгляда
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(this.size / 4, -this.size / 6, this.size / 3, this.size / 3);
+        } else {
+            ctx.fillStyle = this.color;
+        }
+        
+        ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+        
+        // Направление взгляда
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(this.size / 4, -this.size / 6, this.size / 3, this.size / 3);
         }
 
         // Радиус сбора предметов (для отладки)
@@ -1187,7 +1255,8 @@ class Player {
     }
 
     gainExperience(amount) {
-        this.experience += amount * (1 + this.stats.luck * 0.1);
+        // Округляем опыт до целого числа, чтобы избежать проблем с плавающей точкой
+        this.experience = Math.floor((this.experience + amount * (1 + this.stats.luck * 0.1)) * 100) / 100;
         
         // Проверка повышения уровня
         while (this.experience >= this.experienceToNext) {
@@ -1198,6 +1267,8 @@ class Player {
     levelUp() {
         this.level++;
         this.experience -= this.experienceToNext;
+        // Округляем до целого числа
+        this.experience = Math.floor(this.experience);
         this.experienceToNext = Math.floor(this.experienceToNext * 1.2);
         
         // Эффект повышения уровня
@@ -1396,7 +1467,7 @@ class Player {
     }
 
     getExperiencePercent() {
-        return this.experience / this.experienceToNext;
+        return Math.floor(this.experience) / this.experienceToNext;
     }
 
     getStats() {
@@ -1404,7 +1475,7 @@ class Player {
             level: this.level,
             health: this.health,
             maxHealth: this.stats.maxHealth,
-            experience: this.experience,
+            experience: Math.floor(this.experience),
             experienceToNext: this.experienceToNext,
             speed: this.stats.speed,
             regeneration: this.stats.regeneration,
@@ -1496,8 +1567,10 @@ class ItemSystem {
     }
 
     spawnExperienceOrb(x, y, value) {
+        // Округляем значение опыта до целого числа
+        const roundedValue = Math.floor(value);
         const orb = this.itemPool.get();
-        orb.init(x, y, value);
+        orb.init(x, y, roundedValue);
         this.items.push(orb);
     }
 
@@ -1588,7 +1661,8 @@ class ExperienceOrb {
     init(x, y, value) {
         this.x = x;
         this.y = y;
-        this.value = value;
+        // Убеждаемся, что значение опыта целое число
+        this.value = Math.floor(value);
         this.active = true;
         this.animationTime = 0;
         this.velX = MathUtils.random(-50, 50);
@@ -1597,12 +1671,12 @@ class ExperienceOrb {
         this.lifetime = this.maxLifetime;
         
         // Размер зависит от значения
-        this.size = Math.max(4, Math.min(12, 4 + value / 2));
+        this.size = Math.max(4, Math.min(12, 4 + this.value / 2));
         
         // Цвет зависит от значения
-        if (value >= 20) {
+        if (this.value >= 20) {
             this.color = '#ff6600';
-        } else if (value >= 10) {
+        } else if (this.value >= 10) {
             this.color = '#0066ff';
         } else {
             this.color = '#00ff00';
@@ -1692,7 +1766,9 @@ class ExperienceOrb {
         if (!this.active) return;
         
         this.active = false;
-        player.gainExperience(this.value);
+        // Округляем значение опыта до целого числа
+        const expValue = Math.floor(this.value);
+        player.gainExperience(expValue);
         
         // Добавление золота за сбор
         const goldAmount = Math.max(1, Math.floor(this.value / 250)); // Уменьшено в 50 раз (было / 5)

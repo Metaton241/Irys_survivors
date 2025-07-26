@@ -190,6 +190,7 @@ class Game {
     }
 
     applySelectedClass() {
+        console.log('Game.applySelectedClass, выбранный класс:', this.selectedClass);
         let characterClass;
         
         switch (this.selectedClass) {
@@ -198,6 +199,7 @@ class Game {
                 break;
             case 'swordsman':
                 characterClass = new SwordsmanClass();
+                console.log('Создан класс мечника:', characterClass);
                 break;
             // case 'bomber':
             //     characterClass = new BomberClass();
@@ -206,6 +208,7 @@ class Game {
                 characterClass = new ArcherClass();
         }
         
+        console.log('Применяем класс к игроку:', characterClass.name);
         this.player.setCharacterClass(characterClass);
     }
 
@@ -308,6 +311,12 @@ class Game {
     updateGameOver(deltaTime) {
         // Обновление частиц
         this.particleSystem.update(deltaTime);
+        
+        // Проверка на наличие модального окна Game Over
+        if (!document.getElementById('gameOverModal')) {
+            // Если модальное окно не создано, создаем его
+            this.renderGameOver();
+        }
     }
 
     checkCollisions() {
@@ -347,7 +356,7 @@ class Game {
         document.getElementById('score').textContent = this.score;
         document.getElementById('time').textContent = this.formatTime(this.timeElapsed);
         document.getElementById('hp').textContent = Math.ceil(this.player.health);
-        document.getElementById('xp').textContent = this.player.experience;
+        document.getElementById('xp').textContent = Math.floor(this.player.experience);
         document.getElementById('xpNext').textContent = this.player.experienceToNext;
         
         // Обновление комбо
@@ -465,29 +474,121 @@ class Game {
     }
 
     renderGameOver() {
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = '48px Courier New';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 50);
-        
-        this.ctx.font = '24px Courier New';
-        this.ctx.fillText(`Счет: ${this.score}`, this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.fillText(`Время: ${this.formatTime(this.timeElapsed)}`, this.canvas.width / 2, this.canvas.height / 2 + 30);
-        this.ctx.fillText(`Уровень: ${this.player.level}`, this.canvas.width / 2, this.canvas.height / 2 + 60);
-        this.ctx.fillText(`Золото заработано: ${this.goldSystem.goldEarned}`, this.canvas.width / 2, this.canvas.height / 2 + 90);
-        
-        this.ctx.font = '16px Courier New';
-        this.ctx.fillText('Нажмите Enter для перезапуска', this.canvas.width / 2, this.canvas.height / 2 + 130);
-        
-        this.ctx.textAlign = 'left';
-        
-        // Обработка перезапуска
-        if (this.inputManager.isKeyPressed('enter')) {
-            this.restartGame();
+        // Создаем модальное окно с результатами игры, если его еще нет
+        if (!document.getElementById('gameOverModal')) {
+            const modal = document.createElement('div');
+            modal.id = 'gameOverModal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 80%;
+                max-width: 600px;
+                background-color: rgba(0, 0, 0, 0.95);
+                border: 2px solid #ff6600;
+                border-radius: 10px;
+                padding: 20px;
+                color: white;
+                font-family: 'Courier New', monospace;
+                z-index: 1000;
+                box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+            `;
+            
+            // Заголовок
+            const header = document.createElement('h1');
+            header.textContent = i18n.get('gameOver.title', 'GAME OVER');
+            header.style.cssText = 'text-align: center; color: #ff6600; margin-bottom: 20px;';
+            modal.appendChild(header);
+            
+            // Контейнер для статистики
+            const statsContainer = document.createElement('div');
+            statsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;';
+            
+            // Основная статистика
+            const stats = [
+                { label: i18n.get('gameOver.score', 'Счет'), value: this.score },
+                { label: i18n.get('gameOver.time', 'Время'), value: this.formatTime(this.timeElapsed) },
+                { label: i18n.get('gameOver.level', 'Уровень'), value: this.player.level },
+                { label: i18n.get('gameOver.goldEarned', 'Золото заработано'), value: this.goldSystem.goldEarned },
+                { label: i18n.get('gameOver.enemiesKilled', 'Убито врагов'), value: this.enemySystem.killCount },
+                { label: i18n.get('gameOver.maxCombo', 'Макс. комбо'), value: this.scoreSystem.maxCombo }
+            ];
+            
+            // Добавление статистики в контейнер
+            stats.forEach(stat => {
+                const statItem = document.createElement('div');
+                statItem.style.cssText = 'display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #333;';
+                
+                const label = document.createElement('span');
+                label.textContent = stat.label + ':';
+                label.style.cssText = 'color: #aaa;';
+                
+                const value = document.createElement('span');
+                value.textContent = stat.value;
+                value.style.cssText = 'color: #fff; font-weight: bold;';
+                
+                statItem.appendChild(label);
+                statItem.appendChild(value);
+                statsContainer.appendChild(statItem);
+            });
+            
+            modal.appendChild(statsContainer);
+            
+            // Статистика класса
+            const classInfo = document.createElement('div');
+            classInfo.style.cssText = 'margin: 15px 0; padding: 10px; background-color: rgba(255, 255, 255, 0.1); border-radius: 5px;';
+            
+            const classTitle = document.createElement('h3');
+            classTitle.textContent = i18n.get('gameOver.classInfo', 'Информация о классе');
+            classTitle.style.cssText = 'margin: 0 0 10px 0; color: #ff9900;';
+            classInfo.appendChild(classTitle);
+            
+            const className = document.createElement('p');
+            className.textContent = i18n.get('gameOver.className', 'Класс') + ': ' + 
+                (this.player.characterClass ? this.player.characterClass.name : 'Неизвестно');
+            className.style.cssText = 'margin: 5px 0;';
+            classInfo.appendChild(className);
+            
+            modal.appendChild(classInfo);
+            
+            // Кнопка "Вернуться в меню"
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'text-align: center; margin-top: 20px;';
+            
+            const restartButton = document.createElement('button');
+            restartButton.textContent = i18n.get('gameOver.backToMenu', 'Вернуться в меню');
+            restartButton.style.cssText = `
+                background-color: #ff6600;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 16px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-family: 'Courier New', monospace;
+                transition: background-color 0.3s;
+            `;
+            restartButton.onmouseover = function() {
+                this.style.backgroundColor = '#ff9900';
+            };
+            restartButton.onmouseout = function() {
+                this.style.backgroundColor = '#ff6600';
+            };
+            restartButton.onclick = () => {
+                document.body.removeChild(modal);
+                this.restartGame();
+            };
+            
+            buttonContainer.appendChild(restartButton);
+            modal.appendChild(buttonContainer);
+            
+            document.body.appendChild(modal);
         }
+        
+        // Затемнение фона
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     renderLevelUpMenu() {
@@ -543,8 +644,15 @@ class Game {
     }
 
     restartGame() {
-        this.currentState = this.states.PLAYING;
+        this.currentState = this.states.MENU;
         this.resetGame();
+        this.showMenu();
+        
+        // Удаляем модальное окно Game Over, если оно существует
+        const gameOverModal = document.getElementById('gameOverModal');
+        if (gameOverModal) {
+            document.body.removeChild(gameOverModal);
+        }
     }
 
     endGame() {
@@ -567,7 +675,20 @@ class Game {
         
         // Скрытие игрового UI
         this.hideElement('gameUI');
-        this.showMenu();
+        
+        // Обновляем статистику для Game Over экрана
+        this.gameStats = {
+            score: this.score,
+            time: this.timeElapsed,
+            level: this.player.level,
+            goldEarned: this.goldSystem.goldEarned,
+            enemiesKilled: this.enemySystem.killCount,
+            maxCombo: this.scoreSystem.maxCombo,
+            characterClass: this.player.characterClass ? this.player.characterClass.name : 'Неизвестно'
+        };
+        
+        // Не показываем меню сразу, теперь будет показываться модальное окно Game Over
+        // this.showMenu();
     }
 
     forceCleanup() {
@@ -905,6 +1026,7 @@ class Game {
     }
 
     setSelectedClass(className) {
+        console.log('Game.setSelectedClass:', className);
         this.selectedClass = className;
         window.userManager.setUserData('selected_class', className);
     }

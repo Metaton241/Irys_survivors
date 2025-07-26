@@ -41,12 +41,16 @@ class I18nSystem {
                 'game.resume': 'Press ESC to resume',
                 
                 // Game Over
-                'gameover.title': 'GAME OVER',
-                'gameover.score': 'Score: {0}',
-                'gameover.time': 'Time: {0}',
-                'gameover.level': 'Level: {0}',
-                'gameover.goldEarned': 'Gold Earned: {0}',
-                'gameover.restart': 'Press Enter to restart',
+                'gameOver.title': 'GAME OVER',
+                'gameOver.score': 'Score',
+                'gameOver.time': 'Time',
+                'gameOver.level': 'Level',
+                'gameOver.goldEarned': 'Gold Earned',
+                'gameOver.enemiesKilled': 'Enemies Killed',
+                'gameOver.maxCombo': 'Max Combo',
+                'gameOver.classInfo': 'Class Information',
+                'gameOver.className': 'Class',
+                'gameOver.backToMenu': 'Back to Menu',
                 
                 // Upgrades
                 'upgrades.title': 'Permanent Upgrades',
@@ -202,12 +206,16 @@ class I18nSystem {
                 'game.resume': 'Нажмите ESC для продолжения',
                 
                 // Game Over
-                'gameover.title': 'ИГРА ОКОНЧЕНА',
-                'gameover.score': 'Счет: {0}',
-                'gameover.time': 'Время: {0}',
-                'gameover.level': 'Уровень: {0}',
-                'gameover.goldEarned': 'Золото заработано: {0}',
-                'gameover.restart': 'Нажмите Enter для перезапуска',
+                'gameOver.title': 'ИГРА ОКОНЧЕНА',
+                'gameOver.score': 'Счет',
+                'gameOver.time': 'Время',
+                'gameOver.level': 'Уровень',
+                'gameOver.goldEarned': 'Золото заработано',
+                'gameOver.enemiesKilled': 'Убито врагов',
+                'gameOver.maxCombo': 'Макс. комбо',
+                'gameOver.classInfo': 'Информация о классе',
+                'gameOver.className': 'Класс',
+                'gameOver.backToMenu': 'Вернуться в меню',
                 
                 // Upgrades
                 'upgrades.title': 'Постоянные улучшения',
@@ -362,13 +370,32 @@ class I18nSystem {
         return true;
     }
     
-    get(key, ...args) {
-        const translation = this.translations[this.currentLanguage][key] || 
-                          this.translations[this.fallbackLanguage][key] || 
-                          key;
+    get(key, fallback, ...args) {
+        let translation = null;
+        
+        // Пробуем найти перевод в текущем языке
+        if (this.translations[this.currentLanguage] && 
+            this.translations[this.currentLanguage][key]) {
+            translation = this.translations[this.currentLanguage][key];
+        }
+        // Если не нашли, ищем в fallback языке
+        else if (this.translations[this.fallbackLanguage] && 
+                this.translations[this.fallbackLanguage][key]) {
+            translation = this.translations[this.fallbackLanguage][key];
+        }
+        // Если всё ещё нет, используем fallback или ключ
+        else {
+            translation = typeof fallback === 'string' ? fallback : key;
+        }
+        
+        // Если аргументы переданы как массив (когда fallback не строка)
+        let interpolationArgs = args;
+        if (typeof fallback !== 'string' && fallback !== undefined) {
+            interpolationArgs = [fallback, ...args];
+        }
         
         // Simple string interpolation
-        return this.interpolate(translation, args);
+        return this.interpolate(translation, interpolationArgs);
     }
     
     interpolate(text, args) {

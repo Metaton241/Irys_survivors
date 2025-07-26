@@ -1,5 +1,5 @@
 // Версия игры
-const VERSION = '0.1';
+const VERSION = '0.2';
 
 // Глобальные переменные
 let game = null;
@@ -15,52 +15,56 @@ function init() {
         return;
     }
     
-    try {
-    game = new Game();
-    window.game = game;
+    // Используем setTimeout для гарантии загрузки всех скриптов
+    setTimeout(() => {
+        try {
+            game = new Game();
+            window.game = game;
+                
+            console.log('Игра создана успешно');
+            console.log('Система постоянных улучшений:', game.permanentUpgrades);
         
-        console.log('Игра создана успешно');
-        console.log('Система постоянных улучшений:', game.permanentUpgrades);
-    
-    // Обновление версии в интерфейсе
-    document.getElementById('gameVersion').textContent = `v${VERSION}`;
-    
-    // Загрузка выбранного класса
-    selectedClass = game.loadSelectedClass();
-    
-    // Установка выбранного класса в игре
-    game.setSelectedClass(selectedClass);
-    
-    // Обновление интерфейса выбора класса
-    updateClassSelection();
-    
-    // Инициализация пользовательского интерфейса
-    initializeUserInterface();
-    
-    // Инициализация системы прокачки
-        console.log('Инициализация системы прокачки...');
-    // renderUpgrades(); // Убираем отсюда - будет вызываться при показе
-    
-    // Обработчики событий
-    setupEventHandlers();
-    
-    console.log('Игра инициализирована');
-        console.log('Выбранный класс:', selectedClass);
-        
-    } catch (error) {
-        console.error('Ошибка инициализации игры:', error);
-        console.error('Stack trace:', error.stack);
-        
-        // Показать ошибку пользователю
-        const errorDiv = document.createElement('div');
-        errorDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: red; color: white; padding: 20px; border-radius: 10px; z-index: 10000;';
-        errorDiv.innerHTML = `
-            <h3>${i18n.get('error.initFailed')}</h3>
-            <p>${i18n.get('error.checkConsole')}</p>
-            <button onclick="location.reload()">${i18n.get('error.reload')}</button>
-        `;
-        document.body.appendChild(errorDiv);
-    }
+            // Обновление версии в интерфейсе
+            document.getElementById('gameVersion').textContent = `v${VERSION}`;
+            
+            // Загрузка выбранного класса
+            selectedClass = game.loadSelectedClass();
+            
+            // Установка выбранного класса в игре
+            console.log('Устанавливаем класс:', selectedClass);
+            game.setSelectedClass(selectedClass);
+            
+            // Обновление интерфейса выбора класса
+            updateClassSelection();
+            
+            // Инициализация пользовательского интерфейса
+            initializeUserInterface();
+            
+            // Инициализация системы прокачки
+            console.log('Инициализация системы прокачки...');
+            // renderUpgrades(); // Убираем отсюда - будет вызываться при показе
+            
+            // Обработчики событий
+            setupEventHandlers();
+            
+            console.log('Игра инициализирована');
+            console.log('Выбранный класс:', selectedClass);
+                
+        } catch (error) {
+            console.error('Ошибка инициализации игры:', error);
+            console.error('Stack trace:', error.stack);
+            
+            // Показать ошибку пользователю
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: red; color: white; padding: 20px; border-radius: 10px; z-index: 10000;';
+            errorDiv.innerHTML = `
+                <h3>${i18n.get('error.initFailed')}</h3>
+                <p>${i18n.get('error.checkConsole')}</p>
+                <button onclick="location.reload()">${i18n.get('error.reload')}</button>
+            `;
+            document.body.appendChild(errorDiv);
+        }
+    }, 100); // Небольшая задержка для гарантии загрузки всех скриптов
 }
 
 // Настройка обработчиков событий
@@ -83,9 +87,9 @@ function setupEventHandlers() {
 
 // Функции для работы с классами
 function selectClass(className) {
-    // Временно блокируем выбор bomber и swordsman классов
-    if (className === 'bomber' || className === 'swordsman') {
-        console.log(`Класс ${className} временно недоступен`);
+    // Временно блокируем выбор bomber класса
+    if (className === 'bomber') {
+        console.log('Класс Bomber временно недоступен');
         return;
     }
     
@@ -240,8 +244,8 @@ function renderUpgrades() {
             upgradesGrid.innerHTML = '<div style="color: orange; text-align: center; padding: 20px;">Система улучшений загружается...</div>';
             return;
         }
-        
-        const upgrades = game.getAllUpgrades();
+    
+    const upgrades = game.getAllUpgrades();
         console.log('Получено улучшений:', upgrades.length);
         console.log('Улучшения:', upgrades);
         
@@ -262,8 +266,8 @@ function renderUpgrades() {
         
         upgradeElement.innerHTML = `
             <div class="upgrade-icon">${upgrade.icon}</div>
-                <div class="upgrade-name">${i18n.get(`upgrade.${upgrade.id}`)}</div>
-                <div class="upgrade-description">${i18n.get(`upgrade.${upgrade.id}.desc`)}</div>
+                <div class="upgrade-name">${i18n.get(`upgrade.${upgrade.id}`, upgrade.id)}</div>
+                <div class="upgrade-description">${i18n.get(`upgrade.${upgrade.id}.desc`, `+${upgrade.effect} per level`)}</div>
             <div class="upgrade-cost">💰 ${upgrade.cost}</div>
                 <div class="upgrade-level">${i18n.get('upgrades.level', upgrade.level, upgrade.maxLevel)}</div>
         `;
@@ -421,12 +425,12 @@ function addAllWeapons() {
 // Функция для изменения класса персонажа
 function changeClass(className) {
     if (game && game.player) {
-        if (className === 'archer') {
+        if (className === 'archer' || className === 'swordsman') {
             game.setSelectedClass(className);
             game.applySelectedClass();
             console.log(`Класс изменен на: ${className}`);
         } else {
-            console.log('Доступные классы: archer');
+            console.log('Доступные классы: archer, swordsman');
         }
     } else {
         console.log('Игрок не найден');
@@ -729,7 +733,7 @@ BY https://x.com/M3TATON
 - dev.addGold(amount) - добавить золото
 - dev.healPlayer(amount) - вылечить игрока
 - dev.addAllWeapons() - добавить все оружие
-- dev.changeClass('archer') - изменить класс
+- dev.changeClass('archer'|'swordsman') - изменить класс
 - dev.resetGold() - сбросить золото
 - dev.resetUpgrades() - сбросить постоянные улучшения
 - dev.toggleDebug() - включить/выключить отладку
