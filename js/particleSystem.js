@@ -555,6 +555,116 @@ class ParticleSystem {
         return emitter;
     }
 
+    // Создание эффекта магнита
+    createMagnetEffect(x, y) {
+        const particleCount = 50;
+        const radius = 100;
+        const colors = ['#3498db', '#2980b9', '#1abc9c'];
+        
+        // Создаем частицы, которые движутся к центру
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * radius;
+            
+            const particleX = x + Math.cos(angle) * distance;
+            const particleY = y + Math.sin(angle) * distance;
+            
+            // Скорость направлена к центру
+            const velX = (x - particleX) * (Math.random() * 2 + 1);
+            const velY = (y - particleY) * (Math.random() * 2 + 1);
+            
+            const life = Math.random() * 0.5 + 0.2;
+            const size = Math.random() * 6 + 2;
+            
+            const particle = new GradientParticle(
+                particleX, particleY, velX, velY, life, colors, size
+            );
+            
+            const emitter = new ParticleEmitter(particleX, particleY, 1, GradientParticle);
+            emitter.particles = [particle];
+            this.addEmitter(emitter);
+        }
+        
+        // Создаем частицы, которые движутся от центра
+        for (let i = 0; i < particleCount / 2; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            
+            // Скорость направлена от центра
+            const velX = Math.cos(angle) * (Math.random() * 100 + 50);
+            const velY = Math.sin(angle) * (Math.random() * 100 + 50);
+            
+            const life = Math.random() * 0.8 + 0.4;
+            const size = Math.random() * 4 + 1;
+            
+            const particle = new CircleParticle(
+                x, y, velX, velY, life, colors[Math.floor(Math.random() * colors.length)], size
+            );
+            
+            const emitter = new ParticleEmitter(x, y, 1, CircleParticle);
+            emitter.particles = [particle];
+            this.addEmitter(emitter);
+        }
+    }
+    
+    // Создание эффекта ядерного взрыва
+    createNukeEffect(x, y, radius) {
+        // Основная волна взрыва
+        const waveParticleCount = 100;
+        const waveColors = ['#ff5500', '#ff0000', '#ffff00'];
+        
+        // Создаем кольцевую волну
+        for (let i = 0; i < waveParticleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 200 + 400;
+            
+            const velX = Math.cos(angle) * speed;
+            const velY = Math.sin(angle) * speed;
+            
+            const life = Math.random() * 1 + 0.5;
+            const size = Math.random() * 20 + 10;
+            
+            const particle = new GradientParticle(
+                x, y, velX, velY, life, waveColors, size
+            );
+            
+            const emitter = new ParticleEmitter(x, y, 1, GradientParticle);
+            emitter.particles = [particle];
+            this.addEmitter(emitter);
+        }
+        
+        // Создаем центральное облако взрыва
+        const cloudParticleCount = 30;
+        const cloudColors = ['#ff0000', '#ff5500', '#ffaa00'];
+        
+        for (let i = 0; i < cloudParticleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 30;
+            
+            const particleX = x + Math.cos(angle) * distance;
+            const particleY = y + Math.sin(angle) * distance;
+            
+            const velX = Math.cos(angle) * (Math.random() * 50);
+            const velY = Math.sin(angle) * (Math.random() * 50) - 100; // Движение вверх
+            
+            const life = Math.random() * 2 + 1;
+            const size = Math.random() * 40 + 20;
+            
+            const particle = new GradientParticle(
+                particleX, particleY, velX, velY, life, cloudColors, size
+            );
+            
+            // Добавляем гравитацию для эффекта подъема и опускания
+            particle.gravity = -20 + Math.random() * 40;
+            
+            const emitter = new ParticleEmitter(particleX, particleY, 1, GradientParticle);
+            emitter.particles = [particle];
+            this.addEmitter(emitter);
+        }
+        
+        // Создаем текстовый эффект
+        this.createScoreText(x, y, 'BOOM!', '#ff0000');
+    }
+
     clear() {
         this.emitters = [];
         this.particleCount = 0;

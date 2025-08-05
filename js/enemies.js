@@ -4,16 +4,27 @@ const enemyImages = {
     tank_virus: null,
     mother_virus: null,
     child_virus: null,
-    ghost_virus: null
+    ghost_virus: null,
+    boss_1: null
 };
 
 // Функция загрузки изображений
 function loadEnemyImages() {
-    const imageNames = ['range_virus', 'tank_virus', 'mother_virus', 'child_virus', 'ghost_virus'];
+    const imageNames = ['range_virus', 'tank_virus', 'mother_virus', 'child_virus', 'ghost_virus', 'boss_1'];
     
     imageNames.forEach(name => {
         enemyImages[name] = new Image();
         enemyImages[name].src = `images/${name}.png`;
+        
+        // Логирование загрузки изображения босса
+        if (name === 'boss_1') {
+            enemyImages[name].onload = function() {
+                console.log('Изображение босса загружено успешно');
+            };
+            enemyImages[name].onerror = function() {
+                console.error('Ошибка загрузки изображения босса');
+            };
+        }
     });
 }
 
@@ -206,7 +217,41 @@ class Enemy {
 
         // Добавление золота за убийство
         const goldReward = Math.max(1, Math.floor(this.xpValue / 150)); // Уменьшено в 50 раз (было / 3)
+        if (window.game && window.game.goldSystem) {
             window.game.goldSystem.addGold(goldReward);
+        }
+        
+        // Шанс спауна бонуса (0.2%)
+        if (window.game && window.game.itemSystem) {
+            const powerUpChance = 0.002; // 0.2%
+            if (Math.random() < powerUpChance) {
+                this.spawnRandomPowerUp();
+            }
+        }
+    }
+    
+    // Спаун случайного бонуса
+    spawnRandomPowerUp() {
+        if (!window.game || !window.game.itemSystem) return;
+        
+        // Типы бонусов
+        const powerUpTypes = ['magnet', 'nuke', 'invincibility'];
+        
+        // Выбираем случайный тип
+        const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+        
+        // Создаем бонус
+        const powerUp = new PowerUp(this.x, this.y, randomType);
+        
+        // Добавляем в систему предметов
+        window.game.itemSystem.items.push(powerUp);
+        
+        console.log(`Появился бонус: ${randomType} на позиции ${this.x}, ${this.y}`);
+        
+        // Создаем эффект появления
+        if (window.game.particleSystem) {
+            window.game.particleSystem.createExplosion(this.x, this.y, 20, powerUp.color);
+        }
     }
 
     canAttack(player) {
@@ -1119,6 +1164,20 @@ class EnemySystem {
             waveDuration: 25, // Уменьшено с 30 до 25 для более быстрой эскалации
             betweenWaves: false
         };
+        
+        // Система босса
+        this.bossSystem = {
+            bossTimer: 0,
+            bossInterval: 300, // 5 минут (в секундах)
+            nextBossTime: 300, // Первый босс через 5 минут
+            bossActive: false,
+            bossCount: 0, // Счетчик побежденных боссов
+            bossDefeated: false
+        };
+        
+        // Массив для хранения активных сундуков
+        this.chests = [];
+        this.killCount = 0; // Счетчик убийств врагов
     }
 
     initSpatialGrid(width, height) {
@@ -1141,6 +1200,13 @@ class EnemySystem {
             const enemy = this.enemies[i];
             enemy.update(deltaTime, player);
             
+            // Проверка на поражение босса
+            if (!enemy.active && enemy.isBoss) {
+                this.bossSystem.bossActive = false;
+                this.bossSystem.bossDefeated = true;
+                this.bossSystem.bossCount++;
+            }
+            
             // Удаление неактивных врагов или слишком далеких от игрока
             // Увеличена дистанция для поддержки дальнобойных классов
             if (!enemy.active || enemy.isTooFarFromPlayer(player, 4000)) {
@@ -1148,14 +1214,88 @@ class EnemySystem {
             }
         }
 
+        // Обновление сундуков
+        this.updateChests(deltaTime, player);
+
         // Система спавна
         this.updateSpawning(deltaTime, player);
 
         // Система волн
         this.updateWaveSystem(deltaTime);
 
+        // Система босса
+        this.updateBossSystem(deltaTime, player);
+
         // Увеличение сложности
         this.updateDifficulty(deltaTime);
+    }
+    
+    // Обновление сундуков с улучшениями
+    updateChests(deltaTime, player) {
+        for (let i = this.chests.length - 1; i >= 0; i--) {
+            const chest = this.chests[i];
+            chest.update(deltaTime, player);
+            
+            // Удаление собранных сундуков
+            if (!chest.active) {
+                this.chests.splice(i, 1);
+            }
+        }
+    }
+    
+    // Система босса
+    updateBossSystem(deltaTime, player) {
+        if (!player) return;
+        
+        // Проверка на активного босса
+        if (this.bossSystem.bossActive) {
+            return;
+        }
+        
+        // Обновление таймера босса
+        this.bossSystem.bossTimer += deltaTime;
+        
+        // Проверка времени появления босса
+        if (this.bossSystem.bossTimer >= this.bossSystem.nextBossTime) {
+            this.spawnBoss(player);
+            this.bossSystem.bossTimer = 0;
+            this.bossSystem.nextBossTime = this.bossSystem.bossInterval;
+        }
+    }
+    
+    // Создание босса
+    spawnBoss(player) {
+        if (!player) return;
+        
+        // Звуковой сигнал о появлении босса
+        if (window.game) {
+            window.game.showBossWarningMessage();
+            
+            // Вибрация экрана
+            if (window.game.shakeCamera) {
+                window.game.shakeCamera(10, 1);
+            }
+        }
+        
+        // Определяем позицию для босса (дальше от игрока, но в поле зрения)
+        const spawnDistance = 600;
+        const angle = Math.random() * Math.PI * 2;
+        const x = player.x + Math.cos(angle) * spawnDistance;
+        const y = player.y + Math.sin(angle) * spawnDistance;
+        
+        // Создаем босса
+        const boss = new BossEnemy(x, y);
+        
+        // Корректировка сложности босса в зависимости от текущего уровня игры
+        boss.maxHealth = Math.floor(boss.maxHealth * (1 + this.difficultyMultiplier * 0.2));
+        boss.health = boss.maxHealth;
+        boss.damage = Math.floor(boss.damage * (1 + this.difficultyMultiplier * 0.2));
+        
+        this.enemies.push(boss);
+        this.bossSystem.bossActive = true;
+        this.bossSystem.bossDefeated = false;
+        
+        console.log("Босс появился! Здоровье:", boss.maxHealth, "Урон:", boss.damage);
     }
 
     updateSpawning(deltaTime, player) {
@@ -1267,8 +1407,14 @@ class EnemySystem {
     }
 
     render(ctx) {
+        // Отрисовка врагов
         for (const enemy of this.enemies) {
             enemy.render(ctx);
+        }
+        
+        // Отрисовка сундуков
+        for (const chest of this.chests) {
+            chest.render(ctx);
         }
     }
 
@@ -1326,10 +1472,21 @@ class EnemySystem {
 
     clear() {
         this.enemies = [];
+        this.chests = [];
         this.spawnTimer = 0;
         this.difficultyMultiplier = 1;
         this.waveSystem.currentWave = 1;
         this.waveSystem.waveTimer = 0;
+        
+        // Сброс системы боссов
+        this.bossSystem = {
+            bossTimer: 0,
+            bossInterval: 300, // 5 минут (в секундах)
+            nextBossTime: 300, // Первый босс через 5 минут
+            bossActive: false,
+            bossCount: 0,
+            bossDefeated: false
+        };
     }
 
     getEnemyCount() {
@@ -1350,6 +1507,296 @@ class EnemySystem {
     }
 }
 
+// Boss Enemy - появляется каждые 5 минут
+class BossEnemy extends Enemy {
+    constructor(x, y) {
+        super(x, y);
+        this.maxHealth = 1500; // Высокое здоровье
+        this.health = this.maxHealth;
+        this.damage = 25; // Сильная атака
+        this.speed = 200; // Средняя скорость
+        this.size = 90; // Большой размер
+        this.color = '#ff0000';
+        this.xpValue = 500; // Большой опыт за победу
+        this.type = "boss";
+        this.attackRange = 100;
+        this.attackRate = 0.8;
+        this.knockbackResistance = 0.9;
+        this.mass = 5;
+        this.isBoss = true;
+        this.dropChest = true; // Сундук с улучшениями
+        this.specialAttackCooldown = 0;
+        this.specialAttackRate = 0.2; // Раз в 5 секунд
+        this.attackPhase = 0;
+        this.animationTime = 0;
+        this.projectiles = [];
+    }
+
+    updateBehavior(deltaTime, player) {
+        if (!player) return;
+
+        this.animationTime += deltaTime;
+        
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Обновление снарядов
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const projectile = this.projectiles[i];
+            projectile.update(deltaTime);
+            
+            if (!projectile.active) {
+                this.projectiles.splice(i, 1);
+            }
+        }
+
+        // Специальная атака
+        this.specialAttackCooldown += deltaTime;
+        if (this.specialAttackCooldown >= 1 / this.specialAttackRate) {
+            this.specialAttackCooldown = 0;
+            this.performSpecialAttack(player);
+        }
+
+        // Движение к игроку с разной скоростью в зависимости от фазы
+        if (this.health < this.maxHealth * 0.3) {
+            // Берсерк фаза - быстрее и агрессивнее
+            this.attackPhase = 2;
+            
+            if (distance > 0) {
+                const normalizedX = dx / distance;
+                const normalizedY = dy / distance;
+                this.velX += normalizedX * this.speed * 1.5 * deltaTime;
+                this.velY += normalizedY * this.speed * 1.5 * deltaTime;
+            }
+        } else if (this.health < this.maxHealth * 0.7) {
+            // Вторая фаза - более агрессивная
+            this.attackPhase = 1;
+            
+            if (distance > 0) {
+                const normalizedX = dx / distance;
+                const normalizedY = dy / distance;
+                this.velX += normalizedX * this.speed * 1.2 * deltaTime;
+                this.velY += normalizedY * this.speed * 1.2 * deltaTime;
+            }
+        } else {
+            // Первая фаза - обычное движение
+            this.attackPhase = 0;
+            
+            if (distance > 0) {
+                const normalizedX = dx / distance;
+                const normalizedY = dy / distance;
+                this.velX += normalizedX * this.speed * deltaTime;
+                this.velY += normalizedY * this.speed * deltaTime;
+            }
+        }
+    }
+
+    performSpecialAttack(player) {
+        // Тип специальной атаки зависит от фазы
+        if (this.attackPhase === 2) {
+            // Берсерк фаза: круговая атака снарядами
+            this.circularAttack();
+        } else if (this.attackPhase === 1) {
+            // Вторая фаза: залп из 3 снарядов в сторону игрока
+            this.burstAttack(player);
+        } else {
+            // Первая фаза: одиночные снаряды
+            this.singleAttack(player);
+        }
+        
+        // Визуальный эффект атаки
+        if (window.game && window.game.particleSystem) {
+            window.game.particleSystem.createExplosion(this.x, this.y, 10, '#ff0000');
+            
+            // Звуковой сигнал (вибрация экрана)
+            if (window.game.shakeCamera) {
+                window.game.shakeCamera(5, 0.3);
+            }
+        }
+    }
+
+    circularAttack() {
+        const projectileCount = 12;
+        for (let i = 0; i < projectileCount; i++) {
+            const angle = (i / projectileCount) * Math.PI * 2;
+            const velX = Math.cos(angle) * 400;
+            const velY = Math.sin(angle) * 400;
+            
+            const projectile = new EnemyProjectile(
+                this.x, this.y, velX, velY, this.damage, 3
+            );
+            projectile.size = 15;
+            projectile.color = '#ff5500';
+            
+            this.projectiles.push(projectile);
+        }
+    }
+
+    burstAttack(player) {
+        if (!player) return;
+        
+        const angle = MathUtils.angle(this.x, this.y, player.x, player.y);
+        const spreadAngles = [-0.2, 0, 0.2]; // Небольшой разброс
+        
+        for (let i = 0; i < spreadAngles.length; i++) {
+            const shotAngle = angle + spreadAngles[i];
+            const velX = Math.cos(shotAngle) * 500;
+            const velY = Math.sin(shotAngle) * 500;
+            
+            const projectile = new EnemyProjectile(
+                this.x, this.y, velX, velY, this.damage, 2.5
+            );
+            projectile.size = 12;
+            projectile.color = '#ff00ff';
+            
+            this.projectiles.push(projectile);
+        }
+    }
+
+    singleAttack(player) {
+        if (!player) return;
+        
+        const angle = MathUtils.angle(this.x, this.y, player.x, player.y);
+        const velX = Math.cos(angle) * 450;
+        const velY = Math.sin(angle) * 450;
+        
+        const projectile = new EnemyProjectile(
+            this.x, this.y, velX, velY, this.damage, 2
+        );
+        projectile.size = 10;
+        projectile.color = '#ffaa00';
+        
+        this.projectiles.push(projectile);
+    }
+
+    render(ctx) {
+        if (!this.active) return;
+
+        // Отрисовка снарядов
+        for (const projectile of this.projectiles) {
+            projectile.render(ctx);
+        }
+
+        ctx.save();
+        
+        if (this.flashTime > 0) {
+            ctx.globalAlpha = 0.5;
+        }
+
+        if (this.invulnerable) {
+            ctx.globalAlpha = 0.7;
+        }
+
+        // Отрисовка изображения босса
+        if (enemyImages.boss_1 && enemyImages.boss_1.complete) {
+            ctx.drawImage(
+                enemyImages.boss_1,
+                this.x - this.size / 2,
+                this.y - this.size / 2,
+                this.size,
+                this.size
+            );
+        } else {
+            // Fallback если изображение не загружено
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Декоративные элементы
+            ctx.fillStyle = '#880000';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Корона
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - this.size / 2);
+            ctx.lineTo(this.x - this.size / 4, this.y - this.size / 4);
+            ctx.lineTo(this.x + this.size / 4, this.y - this.size / 4);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Пульсация в зависимости от фазы
+        if (this.attackPhase > 0) {
+            ctx.strokeStyle = this.attackPhase === 2 ? '#ff0000' : '#ff9900';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            const pulseSize = this.size / 2 + Math.sin(this.animationTime * 5) * 5;
+            ctx.arc(this.x, this.y, pulseSize, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Полоса здоровья босса (всегда видна)
+        this.renderHealthBar(ctx);
+        
+        // Текст "BOSS" над врагом
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('BOSS', this.x, this.y - this.size / 2 - 30);
+
+        ctx.restore();
+    }
+
+    renderHealthBar(ctx) {
+        const barWidth = this.size * 1.5;
+        const barHeight = 12;
+        const barY = this.y - this.size / 2 - 20;
+        
+        // Фон полосы здоровья
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x - barWidth / 2, barY, barWidth, barHeight);
+        
+        // Полоса здоровья с цветом в зависимости от фазы
+        const healthPercent = this.health / this.maxHealth;
+        ctx.fillStyle = this.attackPhase === 2 ? '#ff0000' : 
+                        this.attackPhase === 1 ? '#ff9900' : '#00ff00';
+        ctx.fillRect(this.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+        
+        // Текст с процентом здоровья
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.floor(healthPercent * 100) + '%', this.x, barY + 10);
+    }
+
+    die() {
+        super.die();
+        
+        // Создание сундука с улучшениями
+        if (this.dropChest && window.game && window.game.itemSystem) {
+            window.game.itemSystem.spawnChest(this.x, this.y);
+        }
+        
+        // Мощный взрыв при смерти
+        if (window.game && window.game.particleSystem) {
+            // Большой взрыв
+            window.game.particleSystem.createExplosion(this.x, this.y, 50, '#ff0000');
+            
+            // Дополнительные визуальные эффекты
+            window.game.particleSystem.createExplosion(this.x, this.y, 30, '#ffff00');
+            
+            // Вибрация экрана
+            if (window.game.shakeCamera) {
+                window.game.shakeCamera(15, 1);
+            }
+        }
+        
+        // Сообщение о победе
+        if (window.game) {
+            window.game.showBossDefeatedMessage();
+        }
+    }
+    
+    getProjectiles() {
+        return this.projectiles;
+    }
+}
+
 // Экспорт классов
 window.Enemy = Enemy;
 window.FastEnemy = FastEnemy;
@@ -1362,4 +1809,5 @@ window.SplitterEnemy = SplitterEnemy;
 window.TeleporterEnemy = TeleporterEnemy;
 window.PoisonSpiderEnemy = PoisonSpiderEnemy;
 window.EnemyProjectile = EnemyProjectile;
+window.BossEnemy = BossEnemy; // Добавляем новый класс
 window.EnemySystem = EnemySystem; 

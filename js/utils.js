@@ -239,9 +239,11 @@ class ResourceLoader {
 class InputManager {
     constructor() {
         this.keys = {};
+        this.previousKeys = {};
         this.mouseX = 0;
         this.mouseY = 0;
         this.mouseDown = false;
+        this.previousMouseDown = false;
         
         this.setupEventListeners();
     }
@@ -269,9 +271,22 @@ class InputManager {
             this.mouseDown = false;
         });
     }
+    
+    // Метод для определения только что нажатой клавиши (однократное нажатие)
+    update() {
+        // Копируем текущее состояние клавиш для следующего кадра
+        this.previousKeys = {...this.keys};
+        this.previousMouseDown = this.mouseDown;
+    }
 
     isKeyPressed(key) {
         return !!this.keys[key.toLowerCase()];
+    }
+    
+    // Проверяет, была ли клавиша только что нажата (одно нажатие)
+    isKeyJustPressed(key) {
+        const lowKey = key.toLowerCase();
+        return !!this.keys[lowKey] && !this.previousKeys[lowKey];
     }
 
     getMousePosition() {
@@ -280,6 +295,11 @@ class InputManager {
 
     isMousePressed() {
         return this.mouseDown;
+    }
+    
+    // Проверяет, была ли кнопка мыши только что нажата (одно нажатие)
+    isMouseJustPressed() {
+        return this.mouseDown && !this.previousMouseDown;
     }
 }
 

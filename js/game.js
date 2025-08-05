@@ -281,6 +281,11 @@ class Game {
         // Обновление игрового времени
         this.timeElapsed += deltaTime;
         
+        // Обновление ввода (для отслеживания однократных нажатий клавиш)
+        if (this.inputManager) {
+            this.inputManager.update();
+        }
+        
         // Обновление игрока
         this.player.update(deltaTime);
         
@@ -460,11 +465,63 @@ class Game {
             return;
         }
         
+        // Отрисовка таймера босса
+        if (this.enemySystem && this.enemySystem.bossSystem) {
+            this.renderBossTimer();
+        }
+        
         // FPS счетчик
         if (this.showFPS) {
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = '16px Courier New';
             this.ctx.fillText(`FPS: ${this.fps}`, 10, this.canvas.height - 10);
+        }
+    }
+    
+    // Отображение таймера до следующего босса
+    renderBossTimer() {
+        const bossSystem = this.enemySystem.bossSystem;
+        const timeRemaining = bossSystem.nextBossTime - bossSystem.bossTimer;
+        
+        if (timeRemaining <= 60 || this.debug) { // Показываем, когда осталось меньше 60 секунд или в режиме отладки
+            // Рассчитываем позицию (верх экрана, по центру)
+            const x = this.canvas.width / 2;
+            const y = 30;
+            
+            // Пульсация для привлечения внимания
+            const pulseAmount = timeRemaining < 10 ? Math.sin(Date.now() / 100) * 5 : 0;
+            const fontSize = 16 + pulseAmount;
+            
+            // Цвет в зависимости от оставшегося времени
+            let color = '#ffffff';
+            if (timeRemaining < 10) {
+                color = '#ff3333';
+            } else if (timeRemaining < 30) {
+                color = '#ff9900';
+            }
+            
+            // Отрисовка фона
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(x - 100, y - 15, 200, 30);
+            
+            // Отрисовка текста
+            this.ctx.fillStyle = color;
+            this.ctx.font = `${fontSize}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Форматирование текста
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = Math.floor(timeRemaining % 60);
+            const bossText = bossSystem.bossCount > 0 ? `СЛЕДУЮЩИЙ БОСС: ${minutes}:${seconds.toString().padStart(2, '0')}` : `ПЕРВЫЙ БОСС: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            this.ctx.fillText(bossText, x, y);
+            
+            // Если босс активен, показываем соответствующий текст
+            if (bossSystem.bossActive) {
+                this.ctx.fillStyle = '#ff3333';
+                this.ctx.fillText('БОСС АКТИВЕН!', x, y + 30);
+            }
         }
     }
 
@@ -577,7 +634,7 @@ class Game {
             };
             restartButton.onclick = () => {
                 document.body.removeChild(modal);
-                this.restartGame();
+            this.restartGame();
             };
             
             buttonContainer.appendChild(restartButton);
@@ -839,6 +896,11 @@ class Game {
     shakeCamera(intensity, duration) {
         this.camera.shake = intensity;
         this.camera.shakeTime = duration;
+        
+        // Логируем события тряски камеры при появлении боссов
+        if (intensity > 10) {
+            console.log(`Мощная тряска камеры: интенсивность ${intensity}, длительность ${duration}с`);
+        }
     }
 
     formatTime(seconds) {
@@ -1057,6 +1119,218 @@ class Game {
 
     getAllUpgrades() {
         return this.permanentUpgrades.getAllUpgrades();
+    }
+    
+    // Метод для отображения предупреждения о появлении босса
+    showBossWarningMessage() {
+        // Создаем элемент для отображения предупреждения
+        const warningElement = document.createElement('div');
+        warningElement.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            font-size: 24px;
+            padding: 20px 40px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 9999;
+            font-family: 'Arial Black', sans-serif;
+            animation: pulseBoss 1s infinite alternate;
+            box-shadow: 0 0 20px red;
+        `;
+        
+        // Добавляем стиль анимации
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            @keyframes pulseBoss {
+                0% { transform: translate(-50%, -50%) scale(1); }
+                100% { transform: translate(-50%, -50%) scale(1.05); }
+            }
+        `;
+        document.head.appendChild(styleElement);
+        
+        warningElement.textContent = 'ВНИМАНИЕ! ПОЯВИЛСЯ БОСС!';
+        document.body.appendChild(warningElement);
+        
+        // Удаляем элемент через 3 секунды
+        setTimeout(() => {
+            document.body.removeChild(warningElement);
+            document.head.removeChild(styleElement);
+        }, 3000);
+    }
+    
+    // Метод для отображения сообщения о победе над боссом
+    showBossDefeatedMessage() {
+        // Создаем элемент для отображения сообщения
+        const messageElement = document.createElement('div');
+        messageElement.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 0, 0.7);
+            color: white;
+            font-size: 24px;
+            padding: 20px 40px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 9999;
+            font-family: 'Arial Black', sans-serif;
+            animation: pulseVictory 1s infinite alternate;
+            box-shadow: 0 0 20px green;
+        `;
+        
+        // Добавляем стиль анимации
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            @keyframes pulseVictory {
+                0% { transform: translate(-50%, -50%) scale(1); }
+                100% { transform: translate(-50%, -50%) scale(1.05); }
+            }
+        `;
+        document.head.appendChild(styleElement);
+        
+        messageElement.textContent = 'БОСС ПОВЕРЖЕН! НАЙДИТЕ СУНДУК С НАГРАДОЙ!';
+        document.body.appendChild(messageElement);
+        
+        // Удаляем элемент через 3 секунды
+        setTimeout(() => {
+            document.body.removeChild(messageElement);
+            document.head.removeChild(styleElement);
+        }, 3000);
+    }
+    
+    // Метод для отображения меню выбора улучшений из сундука
+    showChestUpgradeMenu(upgradeCount = 3) {
+        // Устанавливаем состояние паузы
+        const previousState = this.currentState;
+        this.currentState = this.states.LEVEL_UP;
+        this.timeManager.setTimeScale(0.1); // Замедление времени
+        
+        // Получаем доступные улучшения (больше, чем нужно для выбора)
+        const allUpgrades = this.player.getAvailableUpgrades();
+        
+        // Перемешиваем и выбираем нужное количество
+        const shuffledUpgrades = allUpgrades.sort(() => Math.random() - 0.5);
+        const selectedUpgrades = shuffledUpgrades.slice(0, upgradeCount);
+        
+        this.ui.levelUpOptions = selectedUpgrades;
+        
+        // Показываем особое меню сундука
+        this.renderChestUpgradeOptions(selectedUpgrades);
+        this.showElement('levelUpMenu');
+        
+        // Добавляем заголовок "Сундук с сокровищами"
+        const levelUpTitle = document.querySelector('.level-up-title');
+        if (levelUpTitle) {
+            levelUpTitle.textContent = 'СУНДУК С СОКРОВИЩАМИ!';
+            levelUpTitle.style.background = 'linear-gradient(45deg, #ffcc00, #ff6600)';
+            levelUpTitle.style.webkitBackgroundClip = 'text';
+            levelUpTitle.style.webkitTextFillColor = 'transparent';
+            levelUpTitle.style.backgroundClip = 'text';
+        }
+    }
+    
+    // Отрисовка опций улучшений из сундука
+    renderChestUpgradeOptions(upgrades) {
+        const container = document.getElementById('levelUpOptions');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        upgrades.forEach((upgrade) => {
+            const option = document.createElement('div');
+            option.className = 'level-up-option';
+            option.style.borderColor = '#ffcc00';
+            option.style.boxShadow = '0 0 10px #ffcc00';
+            option.onclick = () => this.selectChestUpgrade(upgrade);
+            
+            option.innerHTML = `
+                <div class="option-icon">${upgrade.icon}</div>
+                <div class="option-name">${upgrade.name}</div>
+                <div class="option-description">${upgrade.description}</div>
+            `;
+            
+            container.appendChild(option);
+        });
+    }
+    
+    // Выбор улучшения из сундука
+    selectChestUpgrade(upgrade) {
+        if (upgrade.type === 'newWeapon') {
+            this.player.addWeapon(upgrade.weaponClass);
+        } else if (upgrade.type === 'weaponUpgrade') {
+            upgrade.weapon.upgrade();
+        } else {
+            this.player.applyUpgrade(upgrade.type);
+        }
+        
+        // Возвращаем нормальную скорость времени и состояние игры
+        this.timeManager.setTimeScale(1);
+        this.currentState = this.states.PLAYING;
+        this.hideElement('levelUpMenu');
+        
+        // Эффект применения улучшения
+        this.particleSystem.createLevelUpEffect(this.player.x, this.player.y);
+    }
+    
+    // Показать сообщение о подобранном бонусе
+    showPowerUpMessage(powerUp) {
+        if (!powerUp) return;
+        
+        // Создаем элемент для отображения сообщения
+        const messageElement = document.createElement('div');
+        messageElement.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 20px;
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 9999;
+            font-family: 'Arial', sans-serif;
+            border: 2px solid ${powerUp.color};
+            box-shadow: 0 0 15px ${powerUp.color};
+        `;
+        
+        messageElement.innerHTML = `
+            <div style="font-size: 40px; margin-bottom: 10px;">${powerUp.icon}</div>
+            <div style="font-weight: bold; margin-bottom: 5px; color: ${powerUp.color};">${powerUp.name}</div>
+            <div>${powerUp.description}</div>
+        `;
+        
+        document.body.appendChild(messageElement);
+        
+        // Удаляем элемент через 2 секунды
+        setTimeout(() => {
+            document.body.removeChild(messageElement);
+        }, 2000);
+    }
+    
+    // Создать эффект магнита
+    createMagnetEffect(x, y) {
+        // Добавим в систему частиц
+        if (this.particleSystem) {
+            this.particleSystem.createMagnetEffect(x, y);
+        }
+    }
+    
+    // Создать эффект ядерного взрыва
+    createNukeEffect(x, y, radius) {
+        // Добавим в систему частиц
+        if (this.particleSystem) {
+            this.particleSystem.createNukeEffect(x, y, radius);
+        }
+        
+        // Вибрация экрана
+        this.shakeCamera(20, 1);
     }
 }
 

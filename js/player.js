@@ -835,8 +835,8 @@ class PermanentUpgradesSystem {
             return {
                 id,
                 ...def,
-                level: this.getUpgradeLevel(id),
-                cost: this.getUpgradeCost(id),
+            level: this.getUpgradeLevel(id),
+            cost: this.getUpgradeCost(id),
                 canUpgrade: this.canUpgrade(id),
                 effect: effect
             };
@@ -994,6 +994,27 @@ class Player {
         this.baseRange = 500;
         this.characterClass = null;
         this.berserkerMode = false;
+        
+        // Визуальные эффекты
+        this.visualEffects = {
+            invincibility: {
+                active: false,
+                timeLeft: 0,
+                color: '#f1c40f',
+                pulseIntensity: 0.5
+            },
+            magnet: {
+                active: false,
+                timeLeft: 0,
+                color: '#3498db',
+                radius: 100
+            },
+            nuke: {
+                active: false,
+                timeLeft: 0,
+                color: '#e74c3c'
+            }
+        };
     }
 
     setCharacterClass(characterClass) {
@@ -1023,6 +1044,9 @@ class Player {
         if (this.flashTime > 0) {
             this.flashTime -= deltaTime;
         }
+        
+        // Обновление визуальных эффектов
+        this.updateVisualEffects(deltaTime);
 
         // Управление
         this.handleInput(deltaTime);
@@ -1074,6 +1098,11 @@ class Player {
         if (this.inputManager.isKeyPressed('d') || this.inputManager.isKeyPressed('arrowright')) {
             moveX = 1;
         }
+        
+        // Обработка клавиши E для сбора бонусов
+        if (this.inputManager.isKeyJustPressed('e')) {
+            this.collectPowerUps();
+        }
 
         // Нормализация диагонального движения
         if (moveX !== 0 && moveY !== 0) {
@@ -1111,10 +1140,41 @@ class Player {
         );
 
         for (const item of items) {
-            if (item.active) {
+            // Автоматически собираем только опыт, не бонусы
+            if (item.active && !(item instanceof PowerUp)) {
                 item.collect(this);
             }
         }
+    }
+    
+    // Метод для ручного сбора бонусов (при нажатии E)
+    collectPowerUps() {
+        if (!window.game || !window.game.itemSystem) return;
+
+        // Расширенный радиус для ручного сбора бонусов
+        const collectRadius = this.collectRadius * 2; 
+        
+        const powerUps = window.game.itemSystem.items.filter(item => 
+            item instanceof PowerUp && 
+            item.active && 
+            MathUtils.distance(this.x, this.y, item.x, item.y) <= collectRadius
+        );
+
+        // Если нашли хотя бы один бонус, собираем его
+        if (powerUps.length > 0) {
+            // Берем ближайший бонус
+            powerUps.sort((a, b) => {
+                const distA = MathUtils.distance(this.x, this.y, a.x, a.y);
+                const distB = MathUtils.distance(this.x, this.y, b.x, b.y);
+                return distA - distB;
+            });
+            
+            const nearestPowerUp = powerUps[0];
+            nearestPowerUp.collect(this);
+            return true;
+        }
+        
+        return false;
     }
 
     render(ctx) {
@@ -1136,6 +1196,9 @@ class Player {
         // Отрисовка игрока
         ctx.translate(this.x, this.y);
         ctx.rotate(this.facingDirection);
+        
+        // Отрисовка визуальных эффектов
+        this.renderVisualEffects(ctx);
         
         // Отрисовка изображения в зависимости от класса
         let playerImage = null;
@@ -1209,6 +1272,89 @@ class Player {
         ctx.restore();
     }
 
+    // Отрисовка визуальных эффектов
+    renderVisualEffects(ctx) {
+        // Эффект неуязвимости
+        if (this.visualEffects.invincibility.active) {
+            const effect = this.visualEffects.invincibility;
+            const pulseSize = this.size * (1 + Math.sin(this.animationTime * 5) * 0.2);
+            
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = effect.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, pulseSize / 2, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Свечение
+            ctx.shadowColor = effect.color;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(0, 0, pulseSize / 2.5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        // Эффект магнита
+        if (this.visualEffects.magnet.active) {
+            const effect = this.visualEffects.magnet;
+            const radius = effect.radius + Math.sin(this.animationTime * 3) * 10;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.strokeStyle = effect.color;
+            ctx.lineWidth = 2;
+            
+            // Круговой эффект
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Линии притяжения
+            const lineCount = 8;
+            for (let i = 0; i < lineCount; i++) {
+                const angle = (i / lineCount) * Math.PI * 2;
+                const innerRadius = radius * 0.7;
+                const outerRadius = radius;
+                
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(angle) * innerRadius, Math.sin(angle) * innerRadius);
+                ctx.lineTo(Math.cos(angle) * outerRadius, Math.sin(angle) * outerRadius);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+        
+        // Эффект ядерного взрыва (nuke)
+        if (this.visualEffects.nuke.active) {
+            const effect = this.visualEffects.nuke;
+            const timeLeft = effect.timeLeft;
+            
+            if (timeLeft < 0.5) {  // Показываем только в начале активации
+                const radius = 800 * (1 - timeLeft * 2);  // Расширяющийся радиус
+                
+                ctx.save();
+                ctx.globalAlpha = 0.3 * (1 - timeLeft * 2);
+                ctx.fillStyle = effect.color;
+                
+                // Круговая волна
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Внутренняя волна
+                ctx.globalAlpha = 0.5 * (1 - timeLeft * 2);
+                ctx.beginPath();
+                ctx.arc(0, 0, radius * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+    }
+    
     takeDamage(damage) {
         if (this.invulnerable || !this.active) return;
 
@@ -1488,6 +1634,32 @@ class Player {
         };
     }
 
+    // Добавление визуального эффекта
+    addVisualEffect(effectType, duration) {
+        if (!this.visualEffects[effectType]) return;
+        
+        this.visualEffects[effectType].active = true;
+        this.visualEffects[effectType].timeLeft = duration;
+        
+        console.log(`Добавлен визуальный эффект ${effectType} на ${duration} секунд`);
+    }
+    
+    // Обновление визуальных эффектов
+    updateVisualEffects(deltaTime) {
+        Object.keys(this.visualEffects).forEach(effectType => {
+            const effect = this.visualEffects[effectType];
+            
+            if (effect.active) {
+                effect.timeLeft -= deltaTime;
+                
+                if (effect.timeLeft <= 0) {
+                    effect.active = false;
+                    console.log(`Визуальный эффект ${effectType} закончился`);
+                }
+            }
+        });
+    }
+    
     reset() {
         this.x = window.innerWidth / 2;
         this.y = window.innerHeight / 2;
@@ -1552,6 +1724,349 @@ class Player {
             elementalDamage: 0,
             vampiricAura: 0
         };
+        
+        // Сброс визуальных эффектов
+        Object.keys(this.visualEffects).forEach(key => {
+            this.visualEffects[key].active = false;
+            this.visualEffects[key].timeLeft = 0;
+        });
+    }
+}
+
+// Класс бонуса (PowerUp)
+class PowerUp {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.active = true;
+        this.type = type; // "magnet", "nuke", "invincibility"
+        this.size = 25;
+        this.collectRadius = 50;
+        this.animationTime = 0;
+        this.pulseAmount = 5;
+        this.glowIntensity = 0;
+        this.rotationAngle = 0;
+        this.duration = 10; // Длительность эффекта в секундах
+        
+        // Настройки в зависимости от типа
+        switch(this.type) {
+            case "magnet":
+                this.color = '#3498db'; // Синий
+                this.icon = '🧲';
+                this.name = 'Магнит опыта';
+                this.description = 'Притягивает весь опыт на карте';
+                break;
+            case "nuke":
+                this.color = '#e74c3c'; // Красный
+                this.icon = '💥';
+                this.name = 'Мега-бомба';
+                this.description = 'Уничтожает всех врагов в радиусе 800px';
+                break;
+            case "invincibility":
+                this.color = '#f1c40f'; // Жёлтый
+                this.icon = '⭐';
+                this.name = 'Неуязвимость';
+                this.description = 'Временная неуязвимость и повышенный урон';
+                break;
+            default:
+                this.color = '#2ecc71'; // Зелёный
+                this.icon = '❓';
+                this.name = 'Бонус';
+                this.description = 'Неизвестный бонус';
+        }
+    }
+
+    update(deltaTime, player) {
+        if (!this.active) return;
+
+        this.animationTime += deltaTime;
+        this.glowIntensity = Math.sin(this.animationTime * 3) * 0.5 + 0.5;
+        this.rotationAngle += deltaTime * 2; // Вращение
+
+        // Проверка на сбор игроком
+        if (player) {
+            const distance = MathUtils.distance(this.x, this.y, player.x, player.y);
+            if (distance <= this.collectRadius) {
+                this.collect(player);
+            }
+        }
+    }
+
+    render(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        
+        // Эффект свечения
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 15 + this.glowIntensity * 10;
+
+        // Пульсация размера
+        const pulseSize = this.size + Math.sin(this.animationTime * 3) * this.pulseAmount;
+        
+        // Вращение и позиционирование
+        ctx.translate(this.x, this.y);
+        
+        // Отрисовка подсказки "Нажмите E для сбора" если игрок рядом
+        if (window.game && window.game.player) {
+            const distance = MathUtils.distance(this.x, this.y, window.game.player.x, window.game.player.y);
+            if (distance <= this.collectRadius * 2) {
+                ctx.save();
+                ctx.rotate(0); // Сбрасываем вращение для текста
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                
+                // Текст с тенью для лучшей видимости
+                ctx.shadowColor = '#000000';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                
+                // Пульсирующий текст
+                const textScale = 1 + Math.sin(this.animationTime * 4) * 0.1;
+                ctx.scale(textScale, textScale);
+                
+                ctx.fillText('Нажмите E для сбора', 0, -pulseSize - 10);
+                ctx.restore();
+            }
+        }
+        
+        // Вращение для самого бонуса
+        ctx.rotate(this.rotationAngle);
+        
+        // Отрисовка фона бонуса
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulseSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Отрисовка иконки
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${pulseSize * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.icon, 0, 0);
+        
+        // Отрисовка названия бонуса под иконкой
+        ctx.save();
+        ctx.rotate(-this.rotationAngle); // Отменяем вращение для текста
+        ctx.font = '12px Arial';
+        ctx.fillText(this.name, 0, pulseSize);
+        ctx.restore();
+        
+        // Отрисовка радиуса сбора (в режиме отладки)
+        if (window.game && window.game.debug) {
+            ctx.strokeStyle = this.color + '33';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.collectRadius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+
+    collect(player) {
+        if (!this.active || !player || !window.game) return;
+        
+        this.active = false;
+        
+        // Эффект сбора
+        if (window.game.particleSystem) {
+            window.game.particleSystem.createExplosion(this.x, this.y, 20, this.color);
+        }
+        
+        // Применение эффекта в зависимости от типа
+        switch(this.type) {
+            case "magnet":
+                this.applyMagnetEffect(player);
+                break;
+            case "nuke":
+                this.applyNukeEffect(player);
+                break;
+            case "invincibility":
+                this.applyInvincibilityEffect(player);
+                break;
+        }
+        
+        // Показываем сообщение о сборе бонуса
+        window.game.showPowerUpMessage(this);
+    }
+    
+    // Притягивает весь опыт на карте к игроку
+    applyMagnetEffect(player) {
+        if (!window.game || !window.game.itemSystem) return;
+        
+        // Показываем визуальный эффект
+        window.game.particleSystem.createMagnetEffect(player.x, player.y);
+        
+        // Притягиваем все сферы опыта к игроку
+        const experienceOrbs = window.game.itemSystem.items.filter(item => item.type === 'experience');
+        experienceOrbs.forEach(orb => {
+            // Устанавливаем высокую скорость притяжения к игроку
+            orb.magnetSpeed = 1000;
+            orb.magnetTarget = player;
+            orb.magnetized = true;
+        });
+        
+        console.log(`Применен эффект магнита: притянуто ${experienceOrbs.length} сфер опыта`);
+    }
+    
+    // Уничтожает всех врагов в радиусе 800px
+    applyNukeEffect(player) {
+        if (!window.game || !window.game.enemySystem) return;
+        
+        const nukeRadius = 800;
+        let killCount = 0;
+        
+        // Показываем визуальный эффект взрыва
+        window.game.particleSystem.createNukeEffect(player.x, player.y, nukeRadius);
+        
+        // Применяем урон ко всем врагам в радиусе
+        const enemies = window.game.enemySystem.enemies.filter(enemy => {
+            const distance = MathUtils.distance(player.x, player.y, enemy.x, enemy.y);
+            return distance <= nukeRadius;
+        });
+        
+        enemies.forEach(enemy => {
+            enemy.takeDamage(enemy.health * 10, player); // Гарантированное убийство
+            killCount++;
+        });
+        
+        // Вибрация экрана
+        if (window.game.shakeCamera) {
+            window.game.shakeCamera(20, 1);
+        }
+        
+        console.log(`Применен эффект мега-бомбы: уничтожено ${killCount} врагов`);
+    }
+    
+    // Временная неуязвимость и повышенный урон
+    applyInvincibilityEffect(player) {
+        if (!player) return;
+        
+        // Устанавливаем неуязвимость
+        player.invincible = true;
+        player.invincibleTime = this.duration;
+        
+        // Временно повышаем урон
+        player.damageMultiplier = (player.damageMultiplier || 1) * 2;
+        
+        // Визуальный эффект
+        player.addVisualEffect('invincibility', this.duration);
+        
+        // Создаем таймер для отключения эффекта
+        setTimeout(() => {
+            player.invincible = false;
+            player.damageMultiplier = (player.damageMultiplier || 2) / 2;
+            console.log('Эффект неуязвимости закончился');
+        }, this.duration * 1000);
+        
+        console.log(`Применен эффект неуязвимости на ${this.duration} секунд`);
+    }
+}
+
+// Класс сундука с улучшениями (выпадает от босса)
+class TreasureChest {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.active = true;
+        this.size = 30;
+        this.color = '#ffcc00'; // Золотой цвет
+        this.collectRadius = 50;
+        this.animationTime = 0;
+        this.pulseAmount = 5;
+        this.upgradeCount = 3; // Количество улучшений
+        this.glowIntensity = 0;
+    }
+
+    update(deltaTime, player) {
+        if (!this.active) return;
+
+        this.animationTime += deltaTime;
+        this.glowIntensity = Math.sin(this.animationTime * 3) * 0.5 + 0.5;
+
+        // Проверка на сбор игроком
+        if (player) {
+            const distance = MathUtils.distance(this.x, this.y, player.x, player.y);
+            if (distance <= this.collectRadius) {
+                this.collect(player);
+            }
+        }
+    }
+
+    render(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        
+        // Эффект свечения вокруг сундука
+        ctx.shadowColor = '#ffcc00';
+        ctx.shadowBlur = 15 + this.glowIntensity * 10;
+
+        // Пульсация размера
+        const pulseSize = this.size + Math.sin(this.animationTime * 3) * this.pulseAmount;
+        
+        // Отрисовка сундука
+        ctx.fillStyle = this.color;
+        ctx.fillRect(
+            this.x - pulseSize / 2,
+            this.y - pulseSize / 2,
+            pulseSize,
+            pulseSize
+        );
+        
+        // Детали сундука
+        ctx.fillStyle = '#996600';
+        ctx.fillRect(
+            this.x - pulseSize / 2,
+            this.y - pulseSize / 4,
+            pulseSize,
+            pulseSize / 10
+        );
+        
+        // Замок сундука
+        ctx.fillStyle = '#663300';
+        ctx.fillRect(
+            this.x - pulseSize / 10,
+            this.y - pulseSize / 4,
+            pulseSize / 5,
+            pulseSize / 5
+        );
+        
+        // Отрисовка радиуса сбора
+        if (window.game && window.game.debug) {
+            ctx.strokeStyle = '#ffcc0033';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.collectRadius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Текст подсказки "Collect"
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Collect', this.x, this.y - pulseSize / 2 - 10);
+
+        ctx.restore();
+    }
+
+    collect(player) {
+        if (!this.active) return;
+        
+        this.active = false;
+        
+        // Эффект сбора
+        if (window.game && window.game.particleSystem) {
+            window.game.particleSystem.createExplosion(this.x, this.y, 20, '#ffcc00');
+        }
+        
+        // Показываем меню выбора 3 случайных улучшений
+        if (window.game) {
+            window.game.showChestUpgradeMenu(this.upgradeCount);
+        }
     }
 }
 
@@ -1559,6 +2074,7 @@ class Player {
 class ItemSystem {
     constructor() {
         this.items = [];
+        this.chests = []; // Массив для сундуков
         this.itemPool = new ObjectPool(
             () => new ExperienceOrb(0, 0, 0),
             (item) => item.reset(),
@@ -1573,22 +2089,50 @@ class ItemSystem {
         orb.init(x, y, roundedValue);
         this.items.push(orb);
     }
+    
+    spawnChest(x, y) {
+        const chest = new TreasureChest(x, y);
+        
+        // Проверяем, есть ли доступ к enemySystem через window.game
+        if (window.game && window.game.enemySystem) {
+            window.game.enemySystem.chests.push(chest);
+            console.log('Сундук с сокровищами появился на карте!');
+        } else {
+            console.error('Не удалось получить доступ к enemySystem для добавления сундука');
+            // Fallback - добавляем в наш локальный массив
+            this.chests.push(chest);
+        }
+        
+        return chest;
+    }
 
     update(deltaTime) {
+        // Получаем ссылку на игрока
+        const player = window.game ? window.game.player : null;
+        
         for (let i = this.items.length - 1; i >= 0; i--) {
             const item = this.items[i];
-            item.update(deltaTime);
+            
+            // Передаем игрока в метод update для PowerUp
+            if (item instanceof PowerUp) {
+                item.update(deltaTime, player);
+            } else {
+                item.update(deltaTime);
+            }
             
             // Удаление неактивных предметов
             if (!item.active) {
                 this.items.splice(i, 1);
-                this.itemPool.release(item);
+                if (item.type === 'experience') {
+                    this.itemPool.release(item);
+                }
                 continue;
             }
             
             // Удаление предметов слишком далеко от игрока (для предотвращения накопления)
-            // Увеличена дистанция для поддержки дальнобойных классов  
-            if (window.game && window.game.player) {
+            // Увеличена дистанция для поддержки дальнобойных классов
+            // НЕ удаляем бонусы (PowerUp), только сферы опыта и другие предметы  
+            if (!(item instanceof PowerUp) && window.game && window.game.player) {
                 const distance = MathUtils.distance(item.x, item.y, window.game.player.x, window.game.player.y);
                 if (distance > 5000) {
                     item.active = false;
@@ -1599,24 +2143,39 @@ class ItemSystem {
         }
         
         // Принудительная очистка если слишком много предметов
-        if (this.items.length > 80) { // Уменьшено с 100 до 80
-            console.log('Принудительная очистка сфер опыта, было:', this.items.length);
+        // Фильтруем предметы - оставляем все бонусы и только предметы опыта для очистки
+        const nonPowerUps = this.items.filter(item => !(item instanceof PowerUp));
+        
+        if (nonPowerUps.length > 80) { // Уменьшено с 100 до 80
+            console.log('Принудительная очистка сфер опыта, было:', nonPowerUps.length);
             // Удаляем самые дальние от игрока предметы
             if (window.game && window.game.player) {
                 const player = window.game.player;
-                this.items.sort((a, b) => {
+                
+                // Отсортируем неPowerUp предметы по расстоянию от игрока
+                nonPowerUps.sort((a, b) => {
                     const distA = MathUtils.distance(a.x, a.y, player.x, player.y);
                     const distB = MathUtils.distance(b.x, b.y, player.x, player.y);
                     return distB - distA;
                 });
                 
-                const itemsToRemove = this.items.splice(40); // Уменьшено с 50 до 40
+                // Удаляем дальние предметы (сохраняя 40)
+                const itemsToRemove = nonPowerUps.slice(40); // Оставляем 40 ближайших
+                
+                // Удаляем эти предметы из оригинального массива
                 itemsToRemove.forEach(item => {
-                    item.active = false;
-                    this.itemPool.release(item);
+                    const index = this.items.indexOf(item);
+                    if (index !== -1) {
+                        this.items.splice(index, 1);
+                        item.active = false;
+                        if (item.type === 'experience') {
+                            this.itemPool.release(item);
+                        }
+                    }
                 });
             }
-            console.log('Принудительная очистка завершена, осталось:', this.items.length);
+            console.log('Принудительная очистка завершена, осталось без учета бонусов:', 
+                this.items.filter(item => !(item instanceof PowerUp)).length);
         }
     }
 

@@ -1,5 +1,5 @@
 // Версия игры
-const VERSION = '0.2';
+const VERSION = '0.3';
 
 // Глобальные переменные
 let game = null;
@@ -18,36 +18,36 @@ function init() {
     // Используем setTimeout для гарантии загрузки всех скриптов
     setTimeout(() => {
         try {
-            game = new Game();
-            window.game = game;
+    game = new Game();
+    window.game = game;
                 
             console.log('Игра создана успешно');
             console.log('Система постоянных улучшений:', game.permanentUpgrades);
-        
-            // Обновление версии в интерфейсе
-            document.getElementById('gameVersion').textContent = `v${VERSION}`;
-            
-            // Загрузка выбранного класса
-            selectedClass = game.loadSelectedClass();
+    
+    // Обновление версии в интерфейсе
+    document.getElementById('gameVersion').textContent = `v${VERSION}`;
+    
+    // Загрузка выбранного класса
+    selectedClass = game.loadSelectedClass();
             
             // Установка выбранного класса в игре
             console.log('Устанавливаем класс:', selectedClass);
             game.setSelectedClass(selectedClass);
             
             // Обновление интерфейса выбора класса
-            updateClassSelection();
+    updateClassSelection();
             
             // Инициализация пользовательского интерфейса
             initializeUserInterface();
-            
-            // Инициализация системы прокачки
+    
+    // Инициализация системы прокачки
             console.log('Инициализация системы прокачки...');
             // renderUpgrades(); // Убираем отсюда - будет вызываться при показе
-            
-            // Обработчики событий
-            setupEventHandlers();
-            
-            console.log('Игра инициализирована');
+    
+    // Обработчики событий
+    setupEventHandlers();
+    
+    console.log('Игра инициализирована');
             console.log('Выбранный класс:', selectedClass);
                 
         } catch (error) {
